@@ -1,0 +1,93 @@
+html {
+    font-family: sans-serif;
+}
+body {
+    background-color: #FFF;
+}
+h1, h2, h3 {
+    margin: 0;
+}
+input {
+    /*height: 46px;*/
+    /*width: 70%;*/
+    box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
+}
+#container {
+    border: 1px solid black;
+    width: 70%;
+    margin: 0 auto;
+    min-height: 500px;
+    padding: 10px;
+}
+#header {
+    padding: 40px 0 0 15px;
+    height: 80px;
+    margin: 0 -10px;
+    border-bottom: 1px solid black;
+}
+#resultsHeader {
+    padding: 10px 0 30px;
+}
+#resultsHeader > .align-right {
+    position: relative;
+}
+#resultsHeader > .align-right * {
+    display: inline-block;
+    vertical-align: middle;
+}
+#resultsHeader .arrow-left {
+    width: 0;
+    height: 0;
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    border-right: 10px solid black;
+}
+#resultsHeader .arrow-right {
+    width: 0;
+    height: 0;
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    border-left: 10px solid black;
+}
+#resultsHeader .arrow.disabled {
+    cursor: default;
+}
+#resultsHeader .arrow-left.disabled {
+    border-right-color: gray;
+}
+#resultsHeader .arrow-right.disabled {
+    border-left-color: gray;
+}
+#resultsHeader #pagination {
+    vertical-align: middle;
+    padding: 0 10px;
+}
+
+#results {
+    clear: both;
+}
+
+.stream {
+    display: flex;
+    margin-bottom: 4px;
+}
+.stream .content {
+    padding: 10px;
+    align-self: flex-start;
+}
+.stream img {
+    width: 125px;
+    min-width: 125px;
+    height: 125px;
+}
+.stream h1 {
+    font-family: Arial;
+    size: 24px;
+}
+
+.align-left {
+    float: left;
+}
+.align-right {
+    float: right;
+}
