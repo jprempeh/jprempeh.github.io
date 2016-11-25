@@ -1,8 +1,9 @@
 /**
  *
- *
+ * Twtich Search App
  *
  */
+'use strict';
 
 (function() {
 
