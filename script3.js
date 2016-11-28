@@ -36,7 +36,7 @@ var Worker = function(name) {
 function App() {
   this.settings = {
     client_id: '86qz5at41ns04i6ma9dgqguhb3nv4xu',
-    limit: 10,
+    limit: 5,
     page: 1
   };
   this.init = function() {
@@ -80,9 +80,20 @@ app.subscribe('prevPage', function() {
     return event.preventDefault();
   } else {
     this.settings.page -= 1;
-    app.publish('search')
+    this.publish('search')
   }
 });
+
+app.subscribe('nextPage', function() {
+  if(this.settings.page === this.settings.totalPages) {
+    return event.preventDefault()
+  } else {
+    this.settings.page += 1;
+    this.publish('search')
+    console.log('next')
+    event.preventDefault();
+  }
+})
 
 
 // Client for handling API Calls
@@ -146,7 +157,7 @@ function DOM() {
     this.el.leftArrow.addEventListener('click', function(){
       event.preventDefault();
       app.publish('prevPage');
-    })
+    });
     /*
     *
     * Go right
@@ -170,16 +181,38 @@ function DOM() {
     // Update pages
     this.el.pages.textContent = settings.page + '/' + totalPages;
 
+    // Clear results
+    this.el.results.innerHTML = '';
+
+    //
+    this.el.results.innerHTML = this.render(data.streams);
+
+
+  };
+  this.render = function(results) {
+    if(Array.isArray(results)) {
+      return results.map(function(result) {
+        var resultHTML = '<div class="result">';
+        resultHTML += '<img src="' + result.previewImage + '">'
+        resultHTML += '<div class="content"><h3>' + result.channel.display_name + '</h3>';
+        resultHTML += '<span class="result game">' + result.channel.game + ' - ' + result.viewers + ' viewers<br></span>';
+        resultHTML += result.channel.status;
+        resultHTML += '</div></div>';
+        return resultHTML;
+      });
+    }
   }
+
 }
 
 function searchCb(data) {
+  app.settings.totalPages = Math.ceil(data._total/app.settings.limit);
   app.subscribe('results', function() {
-    this.dom.makePages(data, {
-      limit: this.settings.limit,
-      page: this.settings.page || 1
+    app.dom.makePages(data, {
+      limit: app.settings.limit,
+      page: app.settings.page || 1
+      // totalPages:
     });
   });
-  console.log(data)
   app.publish('results')
 }
