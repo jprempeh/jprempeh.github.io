@@ -36,7 +36,8 @@ var Worker = function(name) {
 function App() {
   this.settings = {
     client_id: '86qz5at41ns04i6ma9dgqguhb3nv4xu',
-    limit: 10
+    limit: 10,
+    page: 1
   };
   this.init = function() {
     console.log('initalized');
@@ -64,8 +65,22 @@ app.subscribe('start', function() {
 app.publish('start');
 
 app.subscribe('search', function() {
-  if(this.dom.elements.searchBox.value) {
-    this.client.search(this.dom.elements.searchBox.value)
+  if(this.dom.el.searchBox.value) {
+    this.client = new Client('streams', {
+      limit: 5,
+      offset: (this.settings.page - 1) * this.settings.limit
+    });
+    this.client.search(this.dom.el.searchBox.value)
+  }
+});
+
+app.subscribe('prevPage', function() {
+  if(this.settings.page === 1) {
+    console.log('cant go left')
+    return event.preventDefault();
+  } else {
+    this.settings.page -= 1;
+    app.publish('search')
   }
 });
 
@@ -84,16 +99,13 @@ function Client(endpoint, params) {
     document.getElementsByTagName('head')[0].appendChild(script);
   };
 
-  this.searchCB = function(data) {
-    console.log(data)
-  }
-
   // Url Parameters
 
   this.params = {
     client_id: params.client_id || '86qz5at41ns04i6ma9dgqguhb3nv4xu',
     limit: params.limit || 5,
-    callback: 'searchCB'
+    callback: 'searchCb',
+    offset: params.offset || 0
   };
 
   // Adds URL Parameters to API endpoint
@@ -105,23 +117,69 @@ function Client(endpoint, params) {
 }
 
 function DOM() {
-  this.elements = {
+  this.el = {
     leftArrow: document.querySelector('#resultsHeader .arrow-left'),
     rightArrow: document.querySelector('#resultsHeader .arrow-right'),
     searchBox: document.getElementById('searchBox'),
     searchSubmit: document.querySelector('form[name="search"]'),
-    results: document.getElementById('results')
+    results: document.getElementById('results'),
+    resultsCount: document.getElementById('resultsCount'),
+    pages: document.getElementById('pages')
   };
+
   this.registerEvents = function() {
-    this.elements.searchSubmit.addEventListener('submit', function() {
+    /*
+    *
+    * Submit a search
+    *
+    * */
+    this.el.searchSubmit.addEventListener('submit', function() {
       event.preventDefault();
       if(app) {
         app.publish('search');
       }
     }, false)
+    /*
+    *
+    * Go left
+    * */
+    this.el.leftArrow.addEventListener('click', function(){
+      event.preventDefault();
+      app.publish('prevPage');
+    })
+    /*
+    *
+    * Go right
+    *
+    * */
+    this.el.rightArrow.addEventListener('click', function() {
+      event.preventDefault();
+      app.publish('nextPage');
+    })
+  };
+  this.makePages = function(data, settings) {
+    var total,
+    totalPages;
+
+    total = data._total || 0;
+
+    totalPages = Math.ceil(total/settings.limit);
+
+    // Update results count
+    this.el.resultsCount.textContent = data._total || 0;
+    // Update pages
+    this.el.pages.textContent = settings.page + '/' + totalPages;
+
   }
 }
 
-function searchCB(data) {
+function searchCb(data) {
+  app.subscribe('results', function() {
+    this.dom.makePages(data, {
+      limit: this.settings.limit,
+      page: this.settings.page || 1
+    });
+  });
   console.log(data)
+  app.publish('results')
 }
