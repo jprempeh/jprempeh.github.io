@@ -33,9 +33,7 @@ var Worker = function(name) {
     },
     name: name || ''
   };
-
 };
-
 
 function App() {
   this.settings = {
@@ -55,7 +53,7 @@ function App() {
 
 var app = new App();
 var worker = new Worker();
-worker.installTo(app)
+worker.installTo(app);
 
 app.subscribe('start', function() {
   console.log('STARTED!!!!')
@@ -68,7 +66,10 @@ app.subscribe('start', function() {
 // Start app
 app.publish('start');
 
-app.subscribe('search', function() {
+app.subscribe('search', function(params) {
+  if(params && params.hasOwnProperty('page')) {
+    this.settings.page = params.page;
+  }
   if(this.dom.el.searchBox.value) {
     this.client = new Client('streams', {
       limit: 5,
@@ -100,11 +101,16 @@ app.subscribe('nextPage', function() {
 });
 
 app.subscribe('results', function(data) {
-  app.dom.makePages(data, {
-    limit: app.settings.limit,
-    page: app.settings.page || 1
-    // totalPages:
-  });
+  if(data._total > 0) {
+    app.dom.makePages(data, {
+      limit: app.settings.limit,
+      page: app.settings.page || 1
+      // totalPages:
+    });
+  } else {
+    app.dom.noResults();
+  }
+
 });
 
 app.subscribe('clearResults', function() {
@@ -162,7 +168,9 @@ function DOM() {
     this.el.searchSubmit.addEventListener('submit', function() {
       event.preventDefault();
       if(app) {
-        app.publish('search');
+        app.publish('search', {
+          page: 1
+        });
       }
     }, false)
     /*
@@ -184,6 +192,7 @@ function DOM() {
     })
   };
   this.makePages = function(data, settings) {
+    console.log(data)
     var total,
     totalPages;
 
@@ -201,8 +210,6 @@ function DOM() {
 
     //
     this.render(data.streams);
-
-
   };
   this.render = function(results) {
     if(Array.isArray(results)) {
@@ -218,7 +225,6 @@ function DOM() {
         return resultHTML;
       });
       function renderImg(i) {
-        console.log(results[i])
         var imageUrl = results[i].preview.medium;
         var img = new Image();
         img.onload = function() {
@@ -232,6 +238,10 @@ function DOM() {
       renderImg.call(this, 0)
     }
   };
+  this.noResults = function() {
+    this.el.resultsCount.textContent = 0;
+    this.el.pages.textContent =  '0/0';
+  }
 }
 
 function searchCb(data) {
