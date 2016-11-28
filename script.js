@@ -136,6 +136,7 @@ function getData(data) {
       return resultHTML;
     });
     (function renderIndividualStream(index) {
+      console.log(streams[index])
       // renders streams in series by waiting for preview image to load before rendering markup for that stream
       var imageUrl = streams[index].previewImage;
       var img = new Image();

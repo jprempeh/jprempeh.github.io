@@ -19,6 +19,10 @@ var Worker = function(name) {
     return this;
   };
 
+  var destroy = function(channel, fn) {
+    if(worker.channel[channel]) { worker.channels[channel] = []}
+  }
+
   return {
     channels: {},
     publish: publish,
@@ -93,8 +97,19 @@ app.subscribe('nextPage', function() {
     console.log('next')
     event.preventDefault();
   }
-})
+});
 
+app.subscribe('results', function(data) {
+  app.dom.makePages(data, {
+    limit: app.settings.limit,
+    page: app.settings.page || 1
+    // totalPages:
+  });
+});
+
+app.subscribe('clearResults', function() {
+  this.dom.clearResults();
+});
 
 // Client for handling API Calls
 function Client(endpoint, params) {
@@ -185,34 +200,46 @@ function DOM() {
     this.el.results.innerHTML = '';
 
     //
-    this.el.results.innerHTML = this.render(data.streams);
+    this.render(data.streams);
 
 
   };
   this.render = function(results) {
     if(Array.isArray(results)) {
-      return results.map(function(result) {
+      console.log(results)
+      var markup = results.map(function(result) {
+        console.log(result)
         var resultHTML = '<div class="result">';
-        resultHTML += '<img src="' + result.previewImage + '">'
+        resultHTML += '<img src="' + result.preview.medium + '">'
         resultHTML += '<div class="content"><h3>' + result.channel.display_name + '</h3>';
         resultHTML += '<span class="result game">' + result.channel.game + ' - ' + result.viewers + ' viewers<br></span>';
         resultHTML += result.channel.status;
         resultHTML += '</div></div>';
         return resultHTML;
       });
+      function renderImg(i) {
+        console.log(markup[i])
+        var imageUrl = results[i].preview.medium;
+        var img = new Image();
+        img.onload = function() {
+          this.el.results.innerHTML += markup[i];
+          if (results.length > i + 1) {
+            renderImg.call(this, ++i);
+          }
+        }.bind(this)
+        img.src = imageUrl;
+      }
+      renderImg.call(this, 0)
     }
-  }
+  };
+  // this.clearResults = function() {
+  //   this.el.results.innerHTML = '';
+  // }
 
 }
 
 function searchCb(data) {
   app.settings.totalPages = Math.ceil(data._total/app.settings.limit);
-  app.subscribe('results', function() {
-    app.dom.makePages(data, {
-      limit: app.settings.limit,
-      page: app.settings.page || 1
-      // totalPages:
-    });
-  });
-  app.publish('results')
+  // app.publish('clearResults')
+  app.publish('results', data)
 }
