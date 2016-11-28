@@ -209,7 +209,7 @@ function DOM() {
       console.log(results)
       var markup = results.map(function(result) {
         console.log(result)
-        var resultHTML = '<div class="result">';
+        var resultHTML = '<div class="stream">';
         resultHTML += '<img src="' + result.preview.medium + '">'
         resultHTML += '<div class="content"><h3>' + result.channel.display_name + '</h3>';
         resultHTML += '<span class="result game">' + result.channel.game + ' - ' + result.viewers + ' viewers<br></span>';
@@ -218,7 +218,7 @@ function DOM() {
         return resultHTML;
       });
       function renderImg(i) {
-        console.log(markup[i])
+        console.log(results[i])
         var imageUrl = results[i].preview.medium;
         var img = new Image();
         img.onload = function() {
@@ -232,10 +232,6 @@ function DOM() {
       renderImg.call(this, 0)
     }
   };
-  // this.clearResults = function() {
-  //   this.el.results.innerHTML = '';
-  // }
-
 }
 
 function searchCb(data) {
