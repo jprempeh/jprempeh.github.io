@@ -64,14 +64,22 @@
   /*
    *
    * The Client handles API calls to Twitch.
+   * @params endpoint  - Twitch search endpoint
+   * @params params    - URL Parameters
    *
+   * @property url     - Twitch search url
+   * @method search    - Appends JSONP script tag to document
+   * @property params  - stores URL parameters
+   * @method addParams - adds API parameters to URL
+   * @searchCb
    * */
   function Client(endpoint, params) {
     endpoint = endpoint || 'streams';
     params = params || {};
 
     this.url = 'https://api.twitch.tv/kraken/search/' + endpoint;
-    this.search = function(query, options, cb) {
+
+    this.search = function(query) {
       var script = document.createElement('script');
       this.params.q = query;
       this.url = this.addParams();
@@ -93,76 +101,24 @@
           return param + '=' + this.params[param]
         }, this).join('&');
     };
+
+    // JSONP callback
     this.searchCb = function(data) {
       app.settings.totalPages = Math.ceil(data._total/app.settings.limit);
       app.publish('results', data)
     }
   }
 
-  var app = new App();
-  var worker = new Worker();
-  worker.installTo(app);
 
-  app.subscribe('start', function() {
-    this.client = new Client();
-    this.dom = new DOM();
-    this.dom.registerEvents();
-  });
-
-
-  app.subscribe('search', function(params) {
-    if(params && params.hasOwnProperty('page')) {
-      this.settings.page = params.page;
-    }
-    if(this.dom.el.searchBox.value) {
-      this.client = new Client('streams', {
-        limit: 5,
-        offset: (this.settings.page - 1) * this.settings.limit
-      });
-      this.client.search(this.dom.el.searchBox.value)
-    }
-  });
-
-  app.subscribe('prevPage', function() {
-    if(this.settings.page === 1) {
-      return event.preventDefault();
-    } else {
-      this.settings.page -= 1;
-      this.publish('search')
-    }
-  });
-
-  app.subscribe('nextPage', function() {
-    if(this.settings.page === this.settings.totalPages) {
-      return event.preventDefault()
-    } else {
-      this.settings.page += 1;
-      this.publish('search')
-      event.preventDefault();
-    }
-  });
-
-  app.subscribe('results', function(data) {
-    if(data._total > 0) {
-      app.dom.makePages(data, {
-        limit: app.settings.limit,
-        page: app.settings.page || 1
-      });
-    } else {
-      app.dom.noResults();
-    }
-
-  });
-
-  app.subscribe('clearResults', function() {
-    this.dom.clearResults();
-  });
-
-
-
-// Start app
-  app.publish('start');
-
+  /*
+   *
+   * The DOM module handles all the DOM functionality.
+   * @property el            - el stores all elements
+   * @method registerEvents  - adds event listeners to DOM
+   * @method makePages       - Parses JSON to pages
+   * @method render          - Renders HTML
+   * @method noResults       - Clears page if there are no results
+   * */
   function DOM() {
     this.el = {
       leftArrow: document.querySelector('#resultsHeader .arrow-left'),
@@ -206,7 +162,6 @@
       })
     };
     this.makePages = function(data, settings) {
-      console.log(data)
       var total,
         totalPages;
 
@@ -227,9 +182,7 @@
     };
     this.render = function(results) {
       if(Array.isArray(results)) {
-        console.log(results)
         var markup = results.map(function(result) {
-          console.log(result)
           var resultHTML = '<div class="stream">';
           resultHTML += '<img src="' + result.preview.medium + '">'
           resultHTML += '<div class="content"><h3>' + result.channel.display_name + '</h3>';
@@ -246,7 +199,7 @@
             if (results.length > i + 1) {
               renderImg.call(this, ++i);
             }
-          }.bind(this)
+          }.bind(this);
           img.src = imageUrl;
         }
         renderImg.call(this, 0)
@@ -258,6 +211,82 @@
     }
   }
 
+  /*
+  *
+  * Create new app and install worker functions
+  * */
+  var app = new App();
+  var worker = new Worker();
+  worker.installTo(app);
 
+  /*
+  * The app starts subscribing to events
+  *
+  * */
+
+  // On start, the app will create a new client and DOM instance
+  app.subscribe('start', function() {
+    this.client = new Client();
+    this.dom = new DOM();
+    this.dom.registerEvents();
+  });
+
+  // On search, the app creates a new client and searchs
+  app.subscribe('search', function(params) {
+    if(params && params.hasOwnProperty('page')) {
+      this.settings.page = params.page;
+    }
+    if(this.dom.el.searchBox.value) {
+      this.client = new Client('streams', {
+        limit: 5,
+        offset: (this.settings.page - 1) * this.settings.limit
+      });
+      this.client.search(this.dom.el.searchBox.value)
+    }
+  });
+
+  // previous page event
+  app.subscribe('prevPage', function() {
+    if(this.settings.page === 1) {
+      return event.preventDefault();
+    } else {
+      this.settings.page -= 1;
+      this.publish('search');
+    }
+  });
+
+  // next page event
+  app.subscribe('nextPage', function() {
+    if(this.settings.page === this.settings.totalPages) {
+      return event.preventDefault()
+    } else {
+      this.settings.page += 1;
+      this.publish('search');
+      event.preventDefault();
+    }
+  });
+
+  // results event
+  app.subscribe('results', function(data) {
+    if(data._total > 0) {
+      app.dom.makePages(data, {
+        limit: app.settings.limit,
+        page: app.settings.page || 1
+      });
+    } else {
+      app.dom.noResults();
+    }
+
+  });
+
+  // clear results event
+  app.subscribe('clearResults', function() {
+    this.dom.clearResults();
+  });
+
+  // Start app
+  app.publish('start');
+
+  // Bind callback to window
   window.searchCb = app.client.searchCb;
 })(window);
