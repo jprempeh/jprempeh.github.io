@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Twitch</title>
-	<link rel="stylesheet" href="styles.css">
+	<link rel="stylesheet" href="../styles.css">
 </head>
 <body>
 <div id="container">
@@ -12,7 +12,7 @@
 	<div id="header">
 		<form name="search">
 			<input type="text" id="searchBox" placeholder="Search query...">
-			<input type="submit" value="Search" id="submitSearch">
+			<input type="submit" value="Search">
 		</form>
 	</div>
 
@@ -24,18 +24,16 @@
 			</div>
 			<div class="align-right">
 				<a href="#" class="arrow arrow-left"></a>
-				<div id="pages"></div>
+				<div id="pagination"></div>
 				<a href="#" class="arrow arrow-right"></a>
 			</div>
 		</div>
 		<div id="results"></div>
-
-
-
 		<pre id="json"></pre>
 
 	</div>
+</div>
 
-	<script src="script3.js"></script>
+	<script src="script.js"></script>
 </body>
 </html>

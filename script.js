@@ -1,156 +1,231 @@
 /**
- *
- * Twtich Search App
- *
+ * Created by super on 11/25/16.
  */
-'use strict';
+// Worker
 
-(function() {
-
-})();
-
-var settings = {
-  limit: 10
-};
-var currentQuery = {};  // keys: query, page, totalPages
-
-// elements
-function getE(id) {
-  return document.getElementById(id);
-}
-
-var searchBox = getE('searchBox');
-var results = getE('results');
-var paginationArrows = {
-  left: document.querySelector('#resultsHeader .arrow-left'),
-  right: document.querySelector('#resultsHeader .arrow-right')
-};
-
-var search = function() {
-  if (!currentQuery.query) {
-    return;
-  }
-  console.log(currentQuery.query)
-  var baseApiUrl = 'https://api.twitch.tv/kraken/search/streams';
-  var params = {
-    client_id: '86qz5at41ns04i6ma9dgqguhb3nv4xu',
-    limit: settings.limit,
-    callback: 'getData',
-    q: currentQuery.query,
-    offset: (currentQuery.page - 1) * settings.limit
+var Worker = function(name) {
+  var subscribe = function(channel, fn) {
+    if(!worker.channels[channel]) worker.channels[channel] = [];
+    worker.channels[channel].push({context: this, callback: fn});
   };
-  var url = baseApiUrl + '?' + Object.keys(params).map(function(param) {
-      return param + '=' + params[param];
-    }).join('&');
+  var publish = function(channel) {
+    if(!worker.channels[channel]) return false;
+    var args = Array.prototype.slice.call(arguments, 1);
+    for(var i = 0, l = worker.channels[channel].length; i < l; i++) {
+      var subscription = worker.channels[channel][i];
+      subscription.callback.apply(subscription.context, args)
+    }
+    return this;
+  };
 
-  console.log('querying ' + url);
-
-  var script = document.createElement('script');
-  script.src = url;
-  document.getElementsByTagName('head')[0].appendChild(script);
-
-  searchBox.value = '';
-  if (event) event.preventDefault();
+  return {
+    channels: {},
+    publish: publish,
+    subscribe: subscribe,
+    installTo: function(obj) {
+      obj.subscribe = subscribe;
+      obj.publish = publish;
+    },
+    name: name || ''
+  };
 };
 
-
-var registerEventHandlers = function() {
-  paginationArrows.left.addEventListener('click', function() {
-    if (currentQuery.page === 1) {
-      // cant go left if already on page 1 of results
-      return event.preventDefault();
-    }
-    currentQuery.page -= 1;
-    search();
-    event.preventDefault();
-  });
-  paginationArrows.right.addEventListener('click', function() {
-    if (currentQuery.page === currentQuery.totalPages) {
-      // cant go right when on last page of results
-      return event.preventDefault();
-    }
-    currentQuery.page += 1;
-    search();
-    event.preventDefault();
-  });
-  document.querySelector('form').addEventListener('submit', function() {
-    newQuery(searchBox.value);
-  });
-};
-
-var newQuery = function(query) {
-  currentQuery = {
-    query: query,
+function App() {
+  this.settings = {
+    client_id: '86qz5at41ns04i6ma9dgqguhb3nv4xu',
+    limit: 5,
     page: 1
   };
-  search();
-};
+}
 
-var init = function() {
-  registerEventHandlers();
-  newQuery('starcraft');
-};
-init();
+var app = new App();
+var worker = new Worker();
+worker.installTo(app);
+
+app.subscribe('start', function() {
+  this.client = new Client();
+  this.dom = new DOM();
+  this.dom.registerEvents();
+});
 
 
-function getData(data) {
-  console.log('data', data);
-
-  var resultCount = data._total || 0;
-  (function renderResultsCount(count) {
-    // Page results
-    var resultsCountEl = document.getElementById('resultsCount');
-    resultsCountEl.textContent = count;
-  })(resultCount);
-
-  currentQuery.totalPages = Math.ceil(resultCount / settings.limit);
-  (function renderPagination(curPage, totalPages) {
-    var paginationEl = getE('pagination');
-    paginationEl.textContent = curPage + '/' + totalPages;
-
-    paginationArrows.left.classList.remove('disabled');
-    paginationArrows.right.classList.remove('disabled');
-    if (curPage === 1) {
-      paginationArrows.left.classList.add('disabled');
-    }
-    if (curPage === totalPages) {
-      paginationArrows.right.classList.add('disabled');
-    }
-  })(currentQuery.page, currentQuery.totalPages);
-
-  (function renderStreams(streams) {
-    // waits for the preview image to load before rendering the markup for the following stream (series)
-    results.innerHTML = '';
-    streams = streams.map(function(stream) {
-      // so the preview image can be changed to a different stream property easily
-      stream.previewImage = stream.preview.medium;
-      return stream;
+app.subscribe('search', function(params) {
+  if(params && params.hasOwnProperty('page')) {
+    this.settings.page = params.page;
+  }
+  if(this.dom.el.searchBox.value) {
+    this.client = new Client('streams', {
+      limit: 5,
+      offset: (this.settings.page - 1) * this.settings.limit
     });
-    var streamMarkup = streams.map(function(stream) {
-      var resultHTML = '<div class="stream">';
-      resultHTML += '<img src="' + stream.previewImage + '">'
-      resultHTML += '<div class="content"><h3>' + stream.channel.display_name + '</h3>';
-      resultHTML += '<span class="result game">' + stream.channel.game + ' - ' + stream.viewers + ' viewers<br></span>';
-      resultHTML += stream.channel.status;
-      resultHTML += '</div></div>';
-      return resultHTML;
+    this.client.search(this.dom.el.searchBox.value)
+  }
+});
+
+app.subscribe('prevPage', function() {
+  if(this.settings.page === 1) {
+    return event.preventDefault();
+  } else {
+    this.settings.page -= 1;
+    this.publish('search')
+  }
+});
+
+app.subscribe('nextPage', function() {
+  if(this.settings.page === this.settings.totalPages) {
+    return event.preventDefault()
+  } else {
+    this.settings.page += 1;
+    this.publish('search')
+    event.preventDefault();
+  }
+});
+
+app.subscribe('results', function(data) {
+  if(data._total > 0) {
+    app.dom.makePages(data, {
+      limit: app.settings.limit,
+      page: app.settings.page || 1
     });
-    (function renderIndividualStream(index) {
-      console.log(streams[index])
-      // renders streams in series by waiting for preview image to load before rendering markup for that stream
-      var imageUrl = streams[index].previewImage;
-      var img = new Image();
-      img.onload = function() {
-        results.innerHTML += streamMarkup[index];
+  } else {
+    app.dom.noResults();
+  }
 
-        if (streams.length > index + 1) {
-          renderIndividualStream(++index);
-        }
-      };
-      img.src = imageUrl;
-    })(0);
-  })(data.streams);
+});
 
-};
+app.subscribe('clearResults', function() {
+  this.dom.clearResults();
+});
 
+// Client for handling API Calls
+function Client(endpoint, params) {
+  endpoint = endpoint || 'streams';
+  params = params || {};
 
+  this.url = 'https://api.twitch.tv/kraken/search/' + endpoint;
+  this.search = function(query, options, cb) {
+    var script = document.createElement('script');
+    this.params.q = query;
+    this.url = this.addParams();
+    script.src = this.url;
+    document.getElementsByTagName('head')[0].appendChild(script);
+  };
+
+  // Url Parameters
+  this.params = {
+    client_id: params.client_id || '86qz5at41ns04i6ma9dgqguhb3nv4xu',
+    limit: params.limit || 5,
+    callback: 'searchCb',
+    offset: params.offset || 0
+  };
+
+  // Adds URL Parameters to API endpoint
+  this.addParams = function() {
+    return this.url + '?' + Object.keys(this.params).map(function(param) {
+        return param + '=' + this.params[param]
+      }, this).join('&');
+  };
+}
+
+// Start app
+app.publish('start');
+
+function DOM() {
+  this.el = {
+    leftArrow: document.querySelector('#resultsHeader .arrow-left'),
+    rightArrow: document.querySelector('#resultsHeader .arrow-right'),
+    searchBox: document.getElementById('searchBox'),
+    searchSubmit: document.querySelector('form[name="search"]'),
+    results: document.getElementById('results'),
+    resultsCount: document.getElementById('resultsCount'),
+    pages: document.getElementById('pages')
+  };
+  this.registerEvents = function() {
+    /*
+    *
+    * Submit a search
+    *
+    * */
+    this.el.searchSubmit.addEventListener('submit', function() {
+      event.preventDefault();
+      if(app) {
+        app.publish('search', {
+          page: 1
+        });
+      }
+    }, false)
+    /*
+    *
+    * Go left
+    * */
+    this.el.leftArrow.addEventListener('click', function(){
+      event.preventDefault();
+      app.publish('prevPage');
+    });
+    /*
+    *
+    * Go right
+    *
+    * */
+    this.el.rightArrow.addEventListener('click', function() {
+      event.preventDefault();
+      app.publish('nextPage');
+    })
+  };
+  this.makePages = function(data, settings) {
+    console.log(data)
+    var total,
+    totalPages;
+
+    total = data._total || 0;
+
+    totalPages = Math.ceil(total/settings.limit);
+
+    // Update results count
+    this.el.resultsCount.textContent = data._total || 0;
+    // Update pages
+    this.el.pages.textContent = settings.page + '/' + totalPages;
+
+    // Clear results
+    this.el.results.innerHTML = '';
+
+    //
+    this.render(data.streams);
+  };
+  this.render = function(results) {
+    if(Array.isArray(results)) {
+      console.log(results)
+      var markup = results.map(function(result) {
+        console.log(result)
+        var resultHTML = '<div class="stream">';
+        resultHTML += '<img src="' + result.preview.medium + '">'
+        resultHTML += '<div class="content"><h3>' + result.channel.display_name + '</h3>';
+        resultHTML += '<span class="result game">' + result.channel.game + ' - ' + result.viewers + ' viewers<br></span>';
+        resultHTML += result.channel.status;
+        resultHTML += '</div></div>';
+        return resultHTML;
+      });
+      function renderImg(i) {
+        var imageUrl = results[i].preview.medium;
+        var img = new Image();
+        img.onload = function() {
+          this.el.results.innerHTML += markup[i];
+          if (results.length > i + 1) {
+            renderImg.call(this, ++i);
+          }
+        }.bind(this)
+        img.src = imageUrl;
+      }
+      renderImg.call(this, 0)
+    }
+  };
+  this.noResults = function() {
+    this.el.resultsCount.textContent = 0;
+    this.el.pages.textContent =  '0/0';
+  }
+}
+
+function searchCb(data) {
+  app.settings.totalPages = Math.ceil(data._total/app.settings.limit);
+  app.publish('results', data)
+}
